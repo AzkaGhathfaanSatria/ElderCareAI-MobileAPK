@@ -8,6 +8,7 @@ import '../services/elder_service.dart';
 import '../state/elder_detail_controller.dart';
 import '../widgets/common_widgets.dart';
 import '../widgets/elder_widgets.dart';
+import '../widgets/wearable_card.dart';
 
 class ElderDetailScreen extends StatefulWidget {
   const ElderDetailScreen({super.key, required this.elder});
@@ -127,6 +128,14 @@ class _ElderDetailScreenState extends State<ElderDetailScreen>
     return [
       _ProfileCard(elder: widget.elder, updatedAt: _c.updatedAt),
       const SizedBox(height: 16),
+      WearableCard(
+        elder: widget.elder,
+        onOpen: stopPolling,
+        onClosed: () {
+          startPolling();
+          _c.refresh();
+        },
+      ),
       if (_c.error != null) ...[
         StatusBanner(message: _c.error!),
         const SizedBox(height: 16),
@@ -219,6 +228,28 @@ class _ElderDetailScreenState extends State<ElderDetailScreen>
             value: summary.risk.label,
             color: levelColor(summary.risk),
           ),
+          // Metrik tambahan dari jam; hanya tampil bila datanya ada.
+          if (summary.oxygen != null)
+            StatTile(
+              icon: Icons.water_drop_outlined,
+              label: 'Saturasi oksigen',
+              value: summary.oxygen!.toStringAsFixed(0),
+              unit: '%',
+            ),
+          if (summary.temperature != null)
+            StatTile(
+              icon: Icons.thermostat,
+              label: 'Suhu tubuh',
+              value: summary.temperature!.toStringAsFixed(1),
+              unit: '°C',
+            ),
+          if (summary.hrv != null)
+            StatTile(
+              icon: Icons.monitor_heart_outlined,
+              label: 'HRV',
+              value: summary.hrv!.toStringAsFixed(0),
+              unit: 'ms',
+            ),
         ],
       ),
       const SizedBox(height: 24),

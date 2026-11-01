@@ -55,14 +55,12 @@ class BrandLogo extends StatelessWidget {
         borderRadius: BorderRadius.circular(size * 0.25),
       ),
       alignment: Alignment.center,
-      child: Text(
-        'E',
-        style: TextStyle(
-          fontFamily: kSerif,
-          fontSize: size * 0.5,
-          fontWeight: FontWeight.w700,
-          color: Colors.white,
-        ),
+      child: Image.asset(
+        'assets/logo_mark.png',
+        width: size * 0.74,
+        height: size * 0.74,
+        filterQuality: FilterQuality.medium,
+        semanticLabel: 'Logo ElderCare AI',
       ),
     );
   }

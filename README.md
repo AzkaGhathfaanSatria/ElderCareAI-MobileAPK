@@ -85,6 +85,51 @@ flutter run --dart-define=API_BASE_URL=http://192.168.x.x:4000
 
 Ganti `192.168.x.x` dengan IP LAN laptop (`ipconfig` / `ip a`).
 
+## Hubungkan jam (wearable)
+
+Data jam (mis. Aolon Mars R4) dibaca dari Health Connect lalu dikirim ke `POST /ingest/wearable`.
+
+Alur pengguna:
+1. Di website: halaman Perangkat, daftarkan wearable, muncul QR. Isi kolom "Alamat server" di bawah QR dengan
+   IP laptop (mis. `http://192.168.1.10:4000`).
+2. Di aplikasi: ikon akun (kanan atas) lalu **Hubungkan jam**, ketuk **Scan QR**.
+3. Beri izin Health Connect. Data pertama langsung terkirim, lalu sync otomatis tiap 15 menit.
+
+Alternatif: bila website dibuka di HP yang sama, ketuk "Buka di aplikasi" di bawah QR. Bila scan bermasalah, ada
+"Isi manual" (alamat server + device key `ecw_...`).
+
+Catatan teknis:
+- Pembacaan Health Connect dan sync berkala ditulis native (Kotlin, folder
+  `android/app/src/main/kotlin/com/eldercare/eldercare_mobile/wearable/`) dan berbicara ke Dart lewat
+  `MethodChannel('id.eldercare/wearable')` (`lib/core/wearable_bridge.dart`). Sengaja tidak memakai plugin Flutter
+  `health` + `workmanager`: tugas latar belakang Flutter berjalan di isolate terpisah dan plugin kesehatan di sana
+  rawan gagal, sedangkan WorkManager native tidak butuh mesin Flutter.
+- `MainActivity` sekarang `FlutterFragmentActivity` (dibutuhkan untuk dialog izin Health Connect).
+- `minSdk` dinaikkan ke 28 (Health Connect butuh Android 9+).
+- Alamat server pairing berasal dari QR, terpisah dari `API_BASE_URL` (yang dipakai login dan dashboard).
+- Metrik yang dikirim: detak jantung, SpO2, HRV (RMSSD), suhu, tidur. Akselerometer dan giroskop tidak ada di
+  Health Connect, jadi analisis AI sensor (jatuh) belum jalan dari data jam ini.
+- Setelah menimpa file ini ke repo, jalankan `flutter pub get` (menambah `mobile_scanner`).
+- Kode native belum pernah dikompilasi/diuji di lingkungan penulisan; kemungkinan perlu penyesuaian kecil.
+
+## Notifikasi push (Firebase)
+
+Peringatan dari backend (jatuh, detak abnormal, dll.) dikirim ke HP lewat Firebase Cloud Messaging, termasuk saat
+aplikasi ditutup. Tanpa Firebase aplikasi tetap jalan; peringatan tetap muncul lewat polling 15 detik dan layar Notifikasi.
+
+1. Buat project di https://console.firebase.google.com (gratis, tanpa kartu kredit).
+2. Tambah aplikasi Android dengan package `com.eldercare.eldercare_mobile`. Unduh `google-services.json` dan
+   taruh di `android/app/` (jangan di-commit).
+3. Project settings > Service accounts > Generate new private key. Simpan JSON-nya di laptop (di luar repo), lalu isi
+   backend `.env`: `FCM_SERVICE_ACCOUNT_FILE=C:/path/ke/kunci.json` dan restart backend.
+4. Di folder aplikasi: `flutter pub get`, lalu jalankan ulang aplikasi (bukan hot reload).
+5. Di aplikasi: menu akun > Profil dan pengaturan > Kirim notifikasi uji. Status "Push di HP ini" harus "Aktif".
+
+Layar tambahan: Notifikasi (ikon lonceng), Profil dan pengaturan, Lupa password. Di Lupa password, tempel token
+(atau seluruh tautan) dari email karena tautan emailnya mengarah ke website.
+
+Catatan: jangan menimpa `pubspec.lock` milik Anda; jalankan `flutter pub get` setelah menimpa file.
+
 ## Struktur
 
 ```

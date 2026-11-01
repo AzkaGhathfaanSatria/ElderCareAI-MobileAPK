@@ -19,7 +19,8 @@ android {
         applicationId = "com.eldercare.eldercare_mobile"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
+        // Health Connect butuh Android 9 (API 28) ke atas.
+        minSdk = maxOf(flutter.minSdkVersion, 28)
         targetSdk = flutter.targetSdkVersion
         // Uses the version code from pubspec.yaml. When using split APKs, 1000 * ABI_VERSION
         // is added automatically by Flutter. (https://developer.android.com/studio/build/configure-apk-splits#configure-APK-versions)
@@ -46,4 +47,16 @@ kotlin {
 
 flutter {
     source = "../.."
+}
+
+dependencies {
+    // Pairing wearable: baca Health Connect + sync berkala murni native (lihat folder wearable/)
+    implementation("androidx.health.connect:connect-client:1.1.0")
+    implementation("androidx.work:work-runtime-ktx:2.9.1")
+}
+
+// Push (FCM) aktif hanya bila google-services.json ada di android/app/. Tanpa file itu aplikasi tetap
+// bisa dibangun dan jalan; hanya push yang tidak aktif.
+if (file("google-services.json").exists()) {
+    apply(plugin = "com.google.gms.google-services")
 }

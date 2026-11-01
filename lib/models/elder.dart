@@ -121,6 +121,9 @@ class ActivityDay {
 class ElderSummary {
   const ElderSummary({
     required this.heartRate,
+    this.oxygen,
+    this.temperature,
+    this.hrv,
     required this.activity,
     required this.sleepHours,
     required this.risk,
@@ -130,6 +133,11 @@ class ElderSummary {
 
   /// 0 berarti belum ada data.
   final int heartRate;
+
+  /// Nilai terbaru 24 jam terakhir dari jam; null bila belum ada.
+  final double? oxygen;
+  final double? temperature;
+  final double? hrv;
   final int activity;
   final double sleepHours;
   final RiskLevel risk;
@@ -149,6 +157,9 @@ class ElderSummary {
 
     return ElderSummary(
       heartRate: (json['heartRate'] as num?)?.toInt() ?? 0,
+      oxygen: (json['oxygen'] as num?)?.toDouble(),
+      temperature: (json['temperature'] as num?)?.toDouble(),
+      hrv: (json['hrv'] as num?)?.toDouble(),
       activity: (json['activity'] as num?)?.toInt() ?? 0,
       sleepHours: (json['sleep'] as num?)?.toDouble() ?? 0,
       risk: RiskLevel.fromLabel(json['risk'] as String?),

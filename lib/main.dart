@@ -7,6 +7,7 @@ import 'core/token_storage.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/splash_screen.dart';
+import 'services/account_service.dart';
 import 'services/auth_service.dart';
 import 'services/elder_service.dart';
 import 'state/auth_controller.dart';
@@ -26,6 +27,7 @@ void main() {
       providers: [
         ChangeNotifierProvider<AuthController>.value(value: auth),
         Provider<ElderService>.value(value: ElderService(api)),
+        Provider<AccountService>.value(value: AccountService(api)),
       ],
       child: const ElderCareApp(),
     ),

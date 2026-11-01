@@ -1,16 +1,25 @@
+import 'dart:async';
+
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../core/polling.dart';
+import '../core/push_service.dart';
 import '../core/theme.dart';
+import '../core/wearable_bridge.dart';
 import '../models/elder.dart';
 import '../models/user.dart';
+import '../services/account_service.dart';
 import '../services/elder_service.dart';
 import '../state/auth_controller.dart';
 import '../state/dashboard_controller.dart';
 import '../widgets/common_widgets.dart';
 import '../widgets/elder_widgets.dart';
 import 'elder_detail_screen.dart';
+import 'notifications_screen.dart';
+import 'profile_screen.dart';
+import 'wearable_pairing_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -22,24 +31,122 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen>
     with WidgetsBindingObserver, PollingMixin<DashboardScreen> {
   late final DashboardController _c;
+  late final AccountService _account;
+  StreamSubscription<String>? _linkSub;
+  StreamSubscription<RemoteMessage>? _fgSub;
+  StreamSubscription<RemoteMessage>? _openedSub;
+  int _unread = 0;
 
   @override
   void initState() {
     super.initState();
     _c = DashboardController(context.read<ElderService>());
+    _account = context.read<AccountService>();
     _c.load();
+    _refreshUnread();
     startPolling();
+    _listenPairLinks();
+    _startPush();
   }
 
   @override
   void dispose() {
+    _linkSub?.cancel();
+    _fgSub?.cancel();
+    _openedSub?.cancel();
     stopPolling();
     _c.dispose();
     super.dispose();
   }
 
+  /// Tautan eldercare://pair (tombol "Buka di aplikasi" di web) membuka layar Hubungkan jam.
+  Future<void> _listenPairLinks() async {
+    final bridge = WearableBridge.instance;
+    _linkSub = bridge.links.listen(_openPairing);
+    try {
+      final pending = await bridge.takePendingLink();
+      if (pending != null) _openPairing(pending);
+    } catch (_) {
+      // Bukan Android / belum ada kode native: abaikan.
+    }
+  }
+
+  Future<void> _openPairing([String? link]) async {
+    if (!mounted) return;
+    stopPolling();
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(builder: (_) => WearablePairingScreen(initialLink: link)),
+    );
+    if (!mounted) return;
+    startPolling();
+  }
+
   @override
-  Future<void> onPoll() => _c.load(silent: true);
+  Future<void> onPoll() => Future.wait([_c.load(silent: true), _refreshUnread()]);
+
+  Future<void> _refreshUnread() async {
+    try {
+      final items = await _account.notifications();
+      final n = items.where((i) => !i.read).length;
+      if (mounted && n != _unread) setState(() => _unread = n);
+    } catch (_) {
+      // Lencana tidak kritis.
+    }
+  }
+
+  Future<void> _startPush() async {
+    final push = PushService.instance;
+    await push.start(_account);
+    if (!mounted) return;
+    _fgSub = push.onForeground.listen(_onForegroundPush);
+    _openedSub = push.onOpened.listen((_) => _openNotifications());
+    if (push.takeInitialMessage() != null) _openNotifications();
+  }
+
+  void _onForegroundPush(RemoteMessage m) {
+    if (!mounted) return;
+    _refreshUnread();
+    _c.load(silent: true);
+    final n = m.notification;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          duration: const Duration(seconds: 8),
+          content: Text(
+            [n?.title, n?.body].whereType<String>().where((t) => t.isNotEmpty).join('\n'),
+          ),
+          action: SnackBarAction(label: 'Lihat', onPressed: _openNotifications),
+        ),
+      );
+  }
+
+  Future<void> _openNotifications() async {
+    if (!mounted) return;
+    stopPolling();
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+    );
+    if (!mounted) return;
+    startPolling();
+    _refreshUnread();
+  }
+
+  Future<void> _openProfile() async {
+    if (!mounted) return;
+    stopPolling();
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(builder: (_) => const ProfileScreen()),
+    );
+    if (!mounted) return;
+    startPolling();
+  }
+
+  Future<void> _logout() async {
+    await PushService.instance.stop();
+    if (!mounted) return;
+    await context.read<AuthController>().logout();
+  }
 
   Future<void> _open(Elder elder) async {
     // Hentikan polling dashboard selama layar detail terbuka.
@@ -70,11 +177,22 @@ class _DashboardScreenState extends State<DashboardScreen>
           ],
         ),
         actions: [
+          IconButton(
+            tooltip: 'Notifikasi',
+            onPressed: _openNotifications,
+            icon: Badge(
+              isLabelVisible: _unread > 0,
+              label: Text(_unread > 99 ? '99+' : '$_unread'),
+              child: const Icon(Icons.notifications_none),
+            ),
+          ),
           PopupMenuButton<String>(
             tooltip: 'Akun',
             icon: const Icon(Icons.account_circle_outlined),
             onSelected: (value) {
-              if (value == 'logout') context.read<AuthController>().logout();
+              if (value == 'wearable') _openPairing();
+              if (value == 'profile') _openProfile();
+              if (value == 'logout') _logout();
             },
             itemBuilder: (context) => [
               PopupMenuItem<String>(
@@ -101,6 +219,26 @@ class _DashboardScreenState extends State<DashboardScreen>
                 ),
               ),
               const PopupMenuDivider(),
+              const PopupMenuItem<String>(
+                value: 'profile',
+                child: Row(
+                  children: [
+                    Icon(Icons.person_outline, size: 20),
+                    SizedBox(width: 10),
+                    Text('Profil dan pengaturan'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem<String>(
+                value: 'wearable',
+                child: Row(
+                  children: [
+                    Icon(Icons.watch_outlined, size: 20),
+                    SizedBox(width: 10),
+                    Text('Hubungkan jam'),
+                  ],
+                ),
+              ),
               const PopupMenuItem<String>(
                 value: 'logout',
                 child: Row(

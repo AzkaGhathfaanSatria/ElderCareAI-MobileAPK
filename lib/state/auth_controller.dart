@@ -58,6 +58,18 @@ class AuthController extends ChangeNotifier {
     );
   }
 
+  Future<void> forgotPassword(String email) => _service.forgotPassword(email);
+
+  Future<void> resetPassword({required String token, required String password}) {
+    return _service.resetPassword(token: token, password: password);
+  }
+
+  /// Dipakai layar profil setelah nama diubah.
+  void updateUser(AppUser user) {
+    _user = user;
+    notifyListeners();
+  }
+
   /// Dipanggil ApiClient saat refresh token ditolak: kembali ke layar login.
   void handleSessionExpired() {
     if (_status == AuthStatus.unauthenticated) return;

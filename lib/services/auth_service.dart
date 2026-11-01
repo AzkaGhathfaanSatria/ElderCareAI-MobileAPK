@@ -59,6 +59,22 @@ class AuthService {
     });
   }
 
+  /// Backend selalu membalas sukses (tidak membocorkan apakah email terdaftar).
+  /// Tautan reset dikirim ke email; tokennya ada di parameter `token` pada tautan itu.
+  Future<void> forgotPassword(String email) async {
+    await _api.post('/auth/forgot-password', {'email': email});
+  }
+
+  Future<void> resetPassword({
+    required String token,
+    required String password,
+  }) async {
+    await _api.post('/auth/reset-password', {
+      'token': token,
+      'password': password,
+    });
+  }
+
   Future<AppUser> me() async {
     final res = await _api.get('/auth/me');
     final data = res['data'];

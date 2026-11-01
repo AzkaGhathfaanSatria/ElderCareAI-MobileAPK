@@ -7,6 +7,7 @@ import '../core/validators.dart';
 import '../state/auth_controller.dart';
 import '../widgets/app_text_field.dart';
 import '../widgets/common_widgets.dart';
+import 'forgot_password_screen.dart';
 import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -70,6 +71,20 @@ class _LoginScreenState extends State<LoginScreen> {
     });
   }
 
+  Future<void> _openForgot() async {
+    final changed = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => ForgotPasswordScreen(initialEmail: _email.text.trim()),
+      ),
+    );
+    if (!mounted || changed != true) return;
+    setState(() {
+      _password.clear();
+      _error = null;
+      _notice = 'Password berhasil diubah. Silakan masuk dengan password baru.';
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -121,7 +136,14 @@ class _LoginScreenState extends State<LoginScreen> {
                         autofillHints: const [AutofillHints.password],
                         onFieldSubmitted: (_) => _submit(),
                       ),
-                      const SizedBox(height: 28),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton(
+                          onPressed: _loading ? null : _openForgot,
+                          child: const Text('Lupa password?'),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
                       PrimaryButton(
                         label: 'Masuk',
                         loading: _loading,
